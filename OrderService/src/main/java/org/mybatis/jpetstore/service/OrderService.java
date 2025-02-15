@@ -62,21 +62,26 @@ public class OrderService {
    *          the order
    */
   @Transactional
-  public void insertOrder(Order order) {
+  public boolean insertOrder(Order order) {
     order.setOrderId(getNextId("ordernum"));
     Map<String, Object> param = new HashMap<>();
     order.getLineItems().forEach(lineItem -> {
       String itemId = lineItem.getItemId();
       Integer increment = lineItem.getQuantity();
       param.put(itemId, increment);
-      // http 통신을 id마다 하지말고, 한번에 할 것
     });
-    boolean resp = httpFacade.updateInventoryQuantity(param);
-    if (!resp) {
-      // 응답이 5xx, Timeout일 경우,
-    }
+    // http 통신을 id마다 하지말고, 한번에 할 것
     try {
-//      throw new Exception("Force Exception");
+      boolean resp = httpFacade.updateInventoryQuantity(param);
+      if (!resp) {
+        // 변경 요청이 실패한 경우 (재요청 포함) 트랜잭션을 실패로
+        throw new Exception("Change Quantity Failed");
+      }
+    } catch (Exception e) {
+      return false;
+    }
+
+    try {
       orderMapper.insertOrder(order);
       orderMapper.insertOrderStatus(order);
       order.getLineItems().forEach(lineItem -> {
@@ -84,9 +89,11 @@ public class OrderService {
         lineItemMapper.insertLineItem(lineItem);
       });
     } catch(Exception e) {
-      // 주문 오류 시
+      // 주문 오류 시 보상 트랜잭션 메시지 발행
       kafkaTemplate.send("prod_compensation", param);
+      return false;
     }
+    return true;
   }
 
   /**

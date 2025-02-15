@@ -27,89 +27,6 @@ create table SUPPLIER (
     constraint pk_supplier primary key (suppid)
 );
 
-create table SIGNON (
-    username varchar(25) not null,
-    password varchar(25)  not null,
-    constraint pk_signon primary key (username)
-);
-
-create table ACCOUNT (
-    userid varchar(80) not null,
-    email varchar(80) not null,
-    firstname varchar(80) not null,
-    lastname varchar(80) not null,
-    status varchar(2)  null,
-    addr1 varchar(80) not null,
-    addr2 varchar(40) null,
-    city varchar(80) not  null,
-    state varchar(80) not null,
-    zip varchar(20) not null,
-    country varchar(20) not null,
-    phone varchar(80) not null,
-    constraint pk_account primary key (userid)
-);
-
-create table PROFILE (
-    userid varchar(80) not null,
-    langpref varchar(80) not null,
-    favcategory varchar(30),
-    mylistopt int,
-    banneropt int,
-    constraint pk_profile primary key (userid)
-);
-
-create table BANNERDATA (
-    favcategory varchar(80) not null,
-    bannername varchar(255)  null,
-    constraint pk_bannerdata primary key (favcategory)
-);
-
-create table ORDERS (
-      orderid int not null,
-      userid varchar(80) not null,
-      orderdate date not null,
-      shipaddr1 varchar(80) not null,
-      shipaddr2 varchar(80) null,
-      shipcity varchar(80) not null,
-      shipstate varchar(80) not null,
-      shipzip varchar(20) not null,
-      shipcountry varchar(20) not null,
-      billaddr1 varchar(80) not null,
-      billaddr2 varchar(80)  null,
-      billcity varchar(80) not null,
-      billstate varchar(80) not null,
-      billzip varchar(20) not null,
-      billcountry varchar(20) not null,
-      courier varchar(80) not null,
-      totalprice decimal(10,2) not null,
-      billtofirstname varchar(80) not null,
-      billtolastname varchar(80) not null,
-      shiptofirstname varchar(80) not null,
-      shiptolastname varchar(80) not null,
-      creditcard varchar(80) not null,
-      exprdate varchar(7) not null,
-      cardtype varchar(80) not null,
-      locale varchar(80) not null,
-      constraint pk_orders primary key (orderid)
-);
-
-create table ORDERSTATUS (
-      orderid int not null,
-      linenum int not null,
-      timestamp date not null,
-      status varchar(2) not null,
-      constraint pk_orderstatus primary key (orderid, linenum)
-);
-
-create table LINEITEM (
-      orderid int not null,
-      linenum int not null,
-      itemid varchar(10) not null,
-      quantity int not null,
-      unitprice decimal(10,2) not null,
-      constraint pk_lineitem primary key (orderid, linenum)
-);
-
 create table CATEGORY (
 	catid varchar(10) not null,
 	name varchar(80) null,
@@ -156,31 +73,6 @@ create table INVENTORY (
     qty int not null,
     constraint pk_inventory primary key (itemid)
 );
-
-CREATE TABLE SEQUENCE
-(
-    name               varchar(30)  not null,
-    nextid             int          not null,
-    constraint pk_sequence primary key (name)
-);
-
-
-INSERT INTO SEQUENCE VALUES('ordernum', 1000);
-
-INSERT INTO SIGNON VALUES('j2ee','j2ee');
-INSERT INTO SIGNON VALUES('ACID','ACID');
-
-INSERT INTO ACCOUNT VALUES('j2ee','yourname@yourdomain.com','ABC', 'XYX', 'OK', '901 San Antonio Road', 'MS UCUP02-206', 'Palo Alto', 'CA', '94303', 'USA',  '555-555-5555');
-INSERT INTO ACCOUNT VALUES('ACID','acid@yourdomain.com','ABC', 'XYX', 'OK', '901 San Antonio Road', 'MS UCUP02-206', 'Palo Alto', 'CA', '94303', 'USA',  '555-555-5555');
-
-INSERT INTO PROFILE VALUES('j2ee','english','DOGS',1,1);
-INSERT INTO PROFILE VALUES('ACID','english','CATS',1,1);
-
-INSERT INTO BANNERDATA VALUES ('FISH','<image src="/catalog/images/banner_fish.gif">');
-INSERT INTO BANNERDATA VALUES ('CATS','<image src="/catalog/images/banner_cats.gif">');
-INSERT INTO BANNERDATA VALUES ('DOGS','<image src="/catalog/images/banner_dogs.gif">');
-INSERT INTO BANNERDATA VALUES ('REPTILES','<image src="/catalog/images/banner_reptiles.gif">');
-INSERT INTO BANNERDATA VALUES ('BIRDS','<image src="/catalog/images/banner_birds.gif">');
 
 INSERT INTO CATEGORY VALUES ('FISH','Fish','<image src="/catalog/images/fish_icon.gif"><font size="5" color="blue"> Fish</font>');
 INSERT INTO CATEGORY VALUES ('DOGS','Dogs','<image src="/catalog/images/dogs_icon.gif"><font size="5" color="blue"> Dogs</font>');

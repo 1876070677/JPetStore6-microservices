@@ -15,10 +15,7 @@
  */
 package org.mybatis.jpetstore.service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.mybatis.jpetstore.domain.Category;
 import org.mybatis.jpetstore.domain.Item;
@@ -26,6 +23,7 @@ import org.mybatis.jpetstore.domain.Product;
 import org.mybatis.jpetstore.mapper.CategoryMapper;
 import org.mybatis.jpetstore.mapper.ItemMapper;
 import org.mybatis.jpetstore.mapper.ProductMapper;
+import org.mybatis.jpetstore.mapper.TrnLogMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,12 +39,14 @@ public class CatalogService {
   private final CategoryMapper categoryMapper;
   private final ItemMapper itemMapper;
   private final ProductMapper productMapper;
+  private final TrnLogMapper trnLogMapper;
 
   @Autowired
-  public CatalogService(CategoryMapper categoryMapper, ItemMapper itemMapper, ProductMapper productMapper) {
+  public CatalogService(CategoryMapper categoryMapper, ItemMapper itemMapper, ProductMapper productMapper, TrnLogMapper trnLogMapper) {
     this.categoryMapper = categoryMapper;
     this.itemMapper = itemMapper;
     this.productMapper = productMapper;
+    this.trnLogMapper = trnLogMapper;
   }
 
   public List<Category> getCategoryList() {
@@ -95,7 +95,7 @@ public class CatalogService {
 
 
   @Transactional
-  public boolean updateItemQuantity(List<String> itemId, List<Integer> increment){
+  public boolean updateItemQuantity(List<String> itemId, List<Integer> increment, String uuid){
     try{
       // lock 획득
       itemMapper.lockItemsForUpdate(itemId);
@@ -107,7 +107,13 @@ public class CatalogService {
     }catch (Exception e){
       return false;
     }
+    trnLogMapper.insertTrnLog(uuid);
     return true;
+  }
+
+  public boolean checkChangeQuantity(String uuid) {
+    int chk = trnLogMapper.checkChange(uuid);
+    return chk == 1 ? true : false;
   }
 
   @Transactional

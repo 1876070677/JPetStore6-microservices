@@ -1,9 +1,7 @@
 package org.mybatis.jpetstore.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mybatis.jpetstore.domain.Category;
 import org.mybatis.jpetstore.domain.Item;
-import org.mybatis.jpetstore.domain.Order;
 import org.mybatis.jpetstore.domain.Product;
 import org.mybatis.jpetstore.service.CatalogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,9 +113,16 @@ public class CatalogController {
 
     @ResponseBody
     @GetMapping("/updateQuantity")
-    public ResponseEntity<Boolean> updateInventoryQuantity(@RequestParam List<String> itemId, @RequestParam List<Integer> increment){
-        Boolean isUpdated = catalogService.updateItemQuantity(itemId,increment);
-        return new ResponseEntity<Boolean>(isUpdated,HttpStatus.OK);
+    public ResponseEntity<Boolean> updateInventoryQuantity(@RequestParam List<String> itemId, @RequestParam List<Integer> increment, @RequestParam String uuid){
+        boolean response = catalogService.updateItemQuantity(itemId,increment, uuid);
+        return new ResponseEntity<>(response, HttpStatus.REQUEST_TIMEOUT);
+    }
+
+    @ResponseBody
+    @GetMapping("/checkChangeQuantity")
+    public ResponseEntity<Boolean> checkChangeQuantity(@RequestParam String uuid){
+        boolean response = catalogService.checkChangeQuantity(uuid);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @KafkaListener(topics="prod_compensation", groupId = "group_1")
