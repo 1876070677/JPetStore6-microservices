@@ -23,10 +23,10 @@
     <cache />
     <insert id="insertTrnLog">
         INSERT INTO trn_log (trnid)
-        VALUES (UNHEX(#{uuid}))
+        VALUES #{uuid}
     </insert>
 
     <select id="checkChange" resultType="Integer">
-        SELECT COUNT(trnid) FROM trn_log WHERE trnid = UNHEX(#{uuid})
+        SELECT COUNT(trnid) FROM trn_log WHERE trnid = #{uuid}
     </select>
 </mapper>

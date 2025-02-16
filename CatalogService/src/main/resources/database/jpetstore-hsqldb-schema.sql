@@ -75,7 +75,7 @@ create table inventory (
 );
 
 create table trn_log (
-    trnid binary(16) not null,
+    trnid int not null,
     createdtime TIMESTAMP default CURRENT_TIMESTAMP,
     constraint pk_trn_log primary key (trnid)
 )

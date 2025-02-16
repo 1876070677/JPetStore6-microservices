@@ -113,19 +113,19 @@ public class CatalogController {
 
     @ResponseBody
     @GetMapping("/updateQuantity")
-    public ResponseEntity<Boolean> updateInventoryQuantity(@RequestParam List<String> itemId, @RequestParam List<Integer> increment, @RequestParam String uuid){
+    public ResponseEntity<Boolean> updateInventoryQuantity(@RequestParam List<String> itemId, @RequestParam List<Integer> increment, @RequestParam int uuid){
         boolean response = catalogService.updateItemQuantity(itemId,increment, uuid);
-        return new ResponseEntity<>(response, HttpStatus.REQUEST_TIMEOUT);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @ResponseBody
     @GetMapping("/checkChangeQuantity")
-    public ResponseEntity<Boolean> checkChangeQuantity(@RequestParam String uuid){
+    public ResponseEntity<Boolean> checkChangeQuantity(@RequestParam int uuid){
         boolean response = catalogService.checkChangeQuantity(uuid);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @KafkaListener(topics="prod_compensation", groupId = "group_1")
+    @KafkaListener(topics="prod_compensation", groupId = "group_2")
     public void incrInventoryQuantity(HashMap<String, Object> data) {
         List<String> itemId = new ArrayList<>();
         List<Integer> increment = new ArrayList<>();

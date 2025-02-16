@@ -1,26 +1,37 @@
 package org.mybatis.jpetstore.controller;
 
+import org.mybatis.jpetstore.DTO.PendingOrder;
 import org.mybatis.jpetstore.domain.Account;
 import org.mybatis.jpetstore.domain.Cart;
 import org.mybatis.jpetstore.domain.Order;
 import org.mybatis.jpetstore.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.util.Pair;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Controller
 @RequestMapping("/")
 public class OrderController {
     private static final String REDIRECT_BASE_URL="http://localhost:8080";
-
+    // 스레드 세이프한 해시맵 생성
+    private static final ConcurrentHashMap<Integer, Pair<CompletableFuture<ModelAndView>, Order>> asyncRequests = new ConcurrentHashMap<>();
     @Autowired
     OrderService orderService;
 
@@ -60,40 +71,58 @@ public class OrderController {
     }
 
     @PostMapping("/newOrder")
-    public String newOrder(Order order, @RequestParam(required = false) boolean shippingAddressRequired, @RequestParam(required = false) boolean confirmed, @RequestParam(required = false) boolean changeShipInfo, @RequestParam String csrf, HttpServletRequest req, HttpSession session) {
+    public CompletableFuture<ModelAndView> newOrder(Order order, @RequestParam(required = false) boolean shippingAddressRequired, @RequestParam(required = false) boolean confirmed, @RequestParam(required = false) boolean changeShipInfo, @RequestParam String csrf, HttpServletRequest req, HttpSession session) {
+        CompletableFuture<ModelAndView> future = new CompletableFuture<>();
+        ModelAndView mav = new ModelAndView();
         if (csrf == null || !csrf.equals(session.getAttribute("csrf_token"))) {
             String msg = "This is not a valid request";
-            req.setAttribute("msg", msg);
-            return "common/Error";
+            mav.setViewName("common/Error");
+            future.complete(mav);
+            return future;
         }
         Order sessionOrder = (Order) session.getAttribute("order");
         if (shippingAddressRequired) {
             changeBillInfo(sessionOrder, order);
             session.setAttribute("order", sessionOrder);
-            return "order/ShippingForm";
+            mav.setViewName("order/ShippingForm");
+            future.complete(mav);
+            return future;
         } else if(!confirmed) {
             if (changeShipInfo)
                 changeShipInfo(sessionOrder, order);
             session.setAttribute("order", sessionOrder);
-            return "order/ConfirmOrder";
+            mav.setViewName("order/ConfirmOrder");
+            future.complete(mav);
+            return future;
         } else if (order != null) {
-            boolean stat = orderService.insertOrder(sessionOrder);
+            int stat = orderService.insertOrder(sessionOrder);
 
-            if (stat) {
+            if (stat == 1) {
                 session.removeAttribute("cart");
 
                 String msg = "Thank you, your order has been submitted.";
-                req.setAttribute("msg", msg);
-                return "order/ViewOrder";
-            } else {
+                mav.setViewName("order/ViewOrder");
+                mav.addObject("msg", msg);
+                future.complete(mav);
+                return future;
+            } else if (stat == 0) {
                 // 주문 실패 시 결제 직전으로 되돌아감
-                return "order/ConfirmOrder";
+                mav.setViewName("order/ConfirmOrder");
+                future.complete(mav);
+                return future;
+            } else {
+                // 수량 감소 확인 재요청 실패, 빠져나와서 비동기로 새로운 트랜잭션을 수행
+                // 요청을 큐에 저장, 추후 처리 메시지를 받았을 때 다시 처리하게 될 요청임
+                int uuid = sessionOrder.getOrderId();
+                asyncRequests.put(uuid, Pair.of(future, sessionOrder));
+                return future;
             }
-
         } else {
             String msg = "An error occurred processing your order (order was null).";
-            req.setAttribute("msg", msg);
-            return "common/Error";
+            mav.setViewName("common/Error");
+            mav.addObject("msg", msg);
+            future.complete(mav);
+            return future;
         }
     }
 
@@ -140,5 +169,38 @@ public class OrderController {
         sessionOrder.setShipState(order.getShipState());
         sessionOrder.setShipZip(order.getShipZip());
         sessionOrder.setShipCountry(order.getShipCountry());
+    }
+
+    @KafkaListener(topics="pending_order", groupId = "group_1")
+    public CompletableFuture<ModelAndView> reInsertOrder(PendingOrder data) {
+        Pair<CompletableFuture<ModelAndView>, Order> pair = asyncRequests.get(data.getOrderId());
+        asyncRequests.remove(data.getOrderId());
+
+        CompletableFuture<ModelAndView> future = pair.getFirst();
+        Order order = pair.getSecond();
+        ModelAndView mav = new ModelAndView();
+
+        int stat = orderService.reInsertOrder(order);
+
+        if (stat == 1) {
+            // 주문 성공
+            // 세션 카트를 비우기 위해서 redirect 전송
+            mav.setViewName("redirect:" + REDIRECT_BASE_URL + "/order/redirectOrder");
+            future.complete(mav);
+            return future;
+        } else {
+            mav.setViewName("order/ConfirmOrder");
+            future.complete(mav);
+            return future;
+        }
+    }
+
+    @GetMapping("/redirectOrder")
+    public String redirectOrder(HttpSession session, HttpServletRequest req) {
+        session.removeAttribute("cart");
+
+        String msg = "Thank you, your order has been submitted.";
+        req.setAttribute("msg", msg);
+        return "order/ViewOrder";
     }
 }

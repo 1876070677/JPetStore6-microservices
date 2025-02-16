@@ -95,7 +95,7 @@ public class CatalogService {
 
 
   @Transactional
-  public boolean updateItemQuantity(List<String> itemId, List<Integer> increment, String uuid){
+  public boolean updateItemQuantity(List<String> itemId, List<Integer> increment, int uuid){
     try{
       // lock 획득
       itemMapper.lockItemsForUpdate(itemId);
@@ -111,7 +111,7 @@ public class CatalogService {
     return true;
   }
 
-  public boolean checkChangeQuantity(String uuid) {
+  public boolean checkChangeQuantity(int uuid) {
     int chk = trnLogMapper.checkChange(uuid);
     return chk == 1 ? true : false;
   }

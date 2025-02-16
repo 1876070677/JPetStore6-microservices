@@ -15,6 +15,7 @@
  */
 package org.mybatis.jpetstore.service;
 
+import org.mybatis.jpetstore.DTO.PendingOrder;
 import org.mybatis.jpetstore.domain.Item;
 import org.mybatis.jpetstore.domain.Order;
 import org.mybatis.jpetstore.domain.Sequence;
@@ -62,7 +63,13 @@ public class OrderService {
    *          the order
    */
   @Transactional
-  public boolean insertOrder(Order order) {
+  public int insertOrder(Order order) {
+    /*
+      정상 실패: 0
+      성공: 1
+      비정상 실패: 1
+     */
+    // OrderId 가져오면서 락걸기
     order.setOrderId(getNextId("ordernum"));
     Map<String, Object> param = new HashMap<>();
     order.getLineItems().forEach(lineItem -> {
@@ -70,15 +77,22 @@ public class OrderService {
       Integer increment = lineItem.getQuantity();
       param.put(itemId, increment);
     });
-    // http 통신을 id마다 하지말고, 한번에 할 것
+    int resp = -1;
     try {
-      boolean resp = httpFacade.updateInventoryQuantity(param);
-      if (!resp) {
+      // http 통신을 id마다 하지말고, 한번에 할 것
+      resp = httpFacade.updateInventoryQuantity(param, order.getOrderId());
+      if (resp == 0 || resp == 2) {
         // 변경 요청이 실패한 경우 (재요청 포함) 트랜잭션을 실패로
         throw new Exception("Change Quantity Failed");
       }
     } catch (Exception e) {
-      return false;
+      // 트랜잭션을 실패로 마킹 및 함수 종료
+      if (resp == 2) {
+        // 비정상 실패의 경우, 지연 시간 메시지를 발행
+        PendingOrder po = new PendingOrder(order.getOrderId(), 1);
+        kafkaTemplate.send("pending_order_schedule", po);
+      }
+      return resp;
     }
 
     try {
@@ -91,9 +105,45 @@ public class OrderService {
     } catch(Exception e) {
       // 주문 오류 시 보상 트랜잭션 메시지 발행
       kafkaTemplate.send("prod_compensation", param);
-      return false;
+      return 0;
     }
-    return true;
+    return 1;
+  }
+
+  @Transactional
+  public int reInsertOrder(Order order) {
+    Map<String, Object> param = new HashMap<>();
+    order.getLineItems().forEach(lineItem -> {
+      String itemId = lineItem.getItemId();
+      Integer increment = lineItem.getQuantity();
+      param.put(itemId, increment);
+    });
+    int resp = -1;
+    try {
+      // http 통신을 id마다 하지말고, 한번에 할 것
+      resp = httpFacade.checkChangeQuantity(order.getOrderId());
+      if (resp == 0 || resp == 2) {
+        // 변경 요청이 실패한 경우 (재요청 포함) 트랜잭션을 실패로
+        throw new Exception("Change Quantity Failed");
+      }
+    } catch (Exception e) {
+      // 트랜잭션을 실패로 마킹 및 함수 종료
+      return resp;
+    }
+
+    try {
+      orderMapper.insertOrder(order);
+      orderMapper.insertOrderStatus(order);
+      order.getLineItems().forEach(lineItem -> {
+        lineItem.setOrderId(order.getOrderId());
+        lineItemMapper.insertLineItem(lineItem);
+      });
+    } catch(Exception e) {
+      // 주문 오류 시 보상 트랜잭션 메시지 발행
+      kafkaTemplate.send("prod_compensation", param);
+      return 0;
+    }
+    return 1;
   }
 
   /**

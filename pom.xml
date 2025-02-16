@@ -13,6 +13,7 @@
         <module>CartService</module>
         <module>CatalogService</module>
         <module>OrderService</module>
+        <module>SchedulerService</module>
     </modules>
 
     

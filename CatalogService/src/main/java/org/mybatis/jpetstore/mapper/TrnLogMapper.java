@@ -4,7 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
 public interface TrnLogMapper {
-    void insertTrnLog(String uuid);
+    void insertTrnLog(int uuid);
 
-    int checkChange(String uuid);
+    int checkChange(int uuid);
 }

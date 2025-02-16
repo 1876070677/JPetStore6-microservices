@@ -26,29 +26,33 @@ public class HttpFacade {
 
     private static final String CATALOG_SERVICE_URL = "http://localhost:8080/catalog";
 
-    public boolean updateInventoryQuantity(Map<String, Object> param) {
+    public int updateInventoryQuantity(Map<String, Object> param, int uuid) {
         String quantityString = param.values().stream().map(String::valueOf).collect(Collectors.joining(","));
-        // 트랜잭션을 구별하기 위한 uuid 발급
-        String uuid = UUID.randomUUID().toString().replace("-", "");
+        // orderId를 uuid로 사용
         String url = CATALOG_SERVICE_URL + "/updateQuantity?itemId=" + String.join(",", param.keySet()) + "&increment=" + quantityString + "&uuid=" + uuid;
 
-        boolean responses = false;
+        int responses = -1;
         try {
             ResponseEntity<Boolean> responseEntity = restTemplate.getForEntity(url, Boolean.class);
-            responses = responseEntity.getBody();
-
+            responses = responseEntity.getBody() == true ? 1 : 0;
         } catch (HttpServerErrorException | ResourceAccessException | HttpClientErrorException e) {
             // 5xx 오류 or Timeout 오류
             // 실제로 처리되었는지 아닌지 확인
-            url = CATALOG_SERVICE_URL + "/checkChangeQuantity?uuid=" + uuid;
-            try {
-                ResponseEntity<Boolean> responseEntity = restTemplate.getForEntity(url, Boolean.class);
-                responses = responseEntity.getBody();
-            } catch (HttpServerErrorException | ResourceAccessException e2) {
-                // Todo: 결과 확인 요청 실패 시 즉시 재요청하지 않고 지연 재요청 구현
-            }
+            responses = checkChangeQuantity(uuid);
         }
 
+        return responses;
+    }
+
+    public int checkChangeQuantity(int uuid) {
+        int responses = -1;
+        String url = CATALOG_SERVICE_URL + "/checkChangeQuantity?uuid=" + uuid;
+        try {
+            ResponseEntity<Boolean> responseEntity = restTemplate.getForEntity(url, Boolean.class);
+            responses = responseEntity.getBody() == true ? 1 : 0;
+        } catch (HttpServerErrorException | ResourceAccessException | HttpClientErrorException e2) {
+            responses = 2;
+        }
         return responses;
     }
 

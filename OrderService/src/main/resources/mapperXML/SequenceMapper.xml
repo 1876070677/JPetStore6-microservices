@@ -26,7 +26,7 @@
   <select id="getSequence" resultType="Sequence">
     SELECT name, nextid
     FROM SEQUENCE
-    WHERE NAME = #{name}
+    WHERE NAME = #{name} FOR UPDATE
   </select>
 
   <update id="updateSequence">
